@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "kafka-connect-manager"
+version = "0.1.0"
+description = "A tool to manage Apache Kafka Connect connectors and tasks using asyncio"
+authors = ["Ajamal Khan <13559558+khan-ajamal@users.noreply.github.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+kcm = "kafka_connect_manager.cli:app"
