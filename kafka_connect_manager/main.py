@@ -90,10 +90,6 @@ async def get_connectors(
             str(connector_detail["tasks"]),
         )
 
-    rprint(
-        f"\n[bold green]Total Connectors Found: [/bold green]{len(connectors)} :boom:\n"
-    )
-
     console.print(table)
     end_ts = timer()
 

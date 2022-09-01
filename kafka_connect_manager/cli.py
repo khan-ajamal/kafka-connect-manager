@@ -1,9 +1,11 @@
 """cli.py contains cli commands"""
+import asyncio
 from types import SimpleNamespace
 
 import typer
 
 from kafka_connect_manager import constants
+from kafka_connect_manager.main import get_connectors
 
 app = typer.Typer(help="CLI to manage Kafka Connectors")
 
@@ -35,5 +37,4 @@ def list_connectors(
     ),
 ):
     """List all connectors"""
-    print(ctx.obj.host)
-    print(connector_type)
+    asyncio.run(get_connectors(ctx.obj.host, connector_type))
