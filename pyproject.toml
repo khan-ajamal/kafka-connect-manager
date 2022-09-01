@@ -1,9 +1,12 @@
 [tool.poetry]
 name = "kafka-connect-manager"
-version = "0.1.0"
+version = "0.1.1"
 description = "A tool to manage Apache Kafka Connect connectors and tasks using asyncio"
 authors = ["Ajamal Khan <13559558+khan-ajamal@users.noreply.github.com>"]
 readme = "README.md"
+license = "MIT"
+repository = "https://github.com/khan-ajamal/kafka-connect-manager"
+keywords = ["kafka", "kafka connect"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
