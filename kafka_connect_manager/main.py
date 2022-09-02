@@ -10,8 +10,7 @@ from rich import print as rprint
 from rich.progress import Progress, SpinnerColumn
 
 from kafka_connect_manager import constants
-
-console = Console()
+from kafka_connect_manager.utils import get_formatted_state
 
 
 async def _get_active_connectors(host: str) -> list[str]:
@@ -25,6 +24,13 @@ async def _get_connector_details(host: str, connector: str) -> dict:
     """Get connector configuration and tasks details"""
     async with httpx.AsyncClient() as client:
         resp = await client.get(f"{host}/connectors/{connector}")
+        return resp.json()
+
+
+async def _get_connector_status(host: str, connector: str) -> dict:
+    """Get connector configuration and tasks details"""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{host}/connectors/{connector}/status")
         return resp.json()
 
 
@@ -90,7 +96,32 @@ async def get_connectors(
             str(connector_detail["tasks"]),
         )
 
+    console = Console()
     console.print(table)
     end_ts = timer()
 
     rprint(f"\n[bold green]Elapsed time: [/bold green]{round(end_ts - start_ts, 4)}")
+
+
+async def get_connector_status(host: str, connector_name: str):
+    """Get status of connector along with status of tasks"""
+    status = await _get_connector_status(host, connector_name)
+
+    rprint(f"\n[bold]Name - [/bold]{status['name']}")
+    rprint(f"[bold]State - [/bold]{get_formatted_state(status['connector']['state'])}")
+    rprint(f"[bold]Worker ID - [/bold]{status['connector']['worker_id']}")
+    rprint("\n")
+    connector_task_status_table = Table(title="[bold blue]Tasks Status")
+    connector_task_status_table.add_column("ID")
+    connector_task_status_table.add_column("State", justify="left")
+    connector_task_status_table.add_column("Worker ID")
+
+    for task_detail in status["tasks"]:
+        connector_task_status_table.add_row(
+            str(task_detail["id"]),
+            get_formatted_state(task_detail["state"]),
+            task_detail["worker_id"],
+        )
+
+    console = Console()
+    console.print(connector_task_status_table)
