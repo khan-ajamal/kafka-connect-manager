@@ -17,6 +17,7 @@ $ kcm [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 -   `list`: List all connectors
+-   `status`: Get status connector
 
 ## `kcm list`
 
@@ -31,4 +32,19 @@ $ kcm list [OPTIONS]
 **Options**:
 
 -   `--type [all|sink|source]`: Type of connectors to list [default: all]
+-   `--help`: Show this message and exit.
+
+## `kcm status`
+
+Get status connector
+
+**Usage**:
+
+```console
+$ kcm status [OPTIONS]
+```
+
+**Options**:
+
+-   `--connector TEXT`: Name of connector [required]
 -   `--help`: Show this message and exit.
