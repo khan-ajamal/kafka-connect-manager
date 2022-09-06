@@ -1,11 +1,17 @@
 """cli.py contains cli commands"""
+import json
 import asyncio
+from pathlib import Path
 from types import SimpleNamespace
 
 import typer
 
 from kafka_connect_manager import constants
-from kafka_connect_manager.main import get_connectors, get_connector_status
+from kafka_connect_manager.main import (
+    get_connectors,
+    get_connector_status,
+    register_connector,
+)
 
 app = typer.Typer(help="CLI to manage Kafka Connectors")
 
@@ -51,3 +57,33 @@ def connectors_status(
 ):
     """Get status connector"""
     asyncio.run(get_connector_status(ctx.obj.host, connector_name))
+
+
+@app.command("add")
+def add_connector(
+    ctx: typer.Context,
+    configuration_file: Path = typer.Option(
+        ...,
+        "--file",
+        "-f",
+        help="Config JSON file path",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        writable=False,
+        readable=True,
+        resolve_path=True,
+    ),
+):
+    """Register new connector
+
+    Supporting environment variable expansion in JSON file.
+
+    A connector requires a name and configuration, we take both of them separately.
+
+    For example:
+        {"name": "MySinkConnector", "config": {"connector.class": "com.mongodb.kafka.connect.MongoSinkConnector", "connection.uri": "${MONGODB_URL}"}}
+    """
+    with open(configuration_file, "r", encoding="UTF-8") as file:
+        config = json.load(file)
+        asyncio.run(register_connector(ctx.obj.host, config))

@@ -16,8 +16,40 @@ $ kcm [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+-   `add`: Register new connector
 -   `list`: List all connectors
 -   `status`: Get status connector
+
+## `kcm add`
+
+Register new connector
+
+Supporting environment variable expansion in JSON file.
+
+A connector requires a name and configuration, we take both of them separately.
+
+For example:
+
+```json
+{
+    "name": "MySinkConnector",
+    "config": {
+        "connector.class": "com.mongodb.kafka.connect.MongoSinkConnector",
+        "connection.uri": "${MONGODB_URL}"
+    }
+}
+```
+
+**Usage**:
+
+```console
+$ kcm add [OPTIONS]
+```
+
+**Options**:
+
+-   `-f, --file FILE`: Config JSON file path [required]
+-   `--help`: Show this message and exit.
 
 ## `kcm list`
 

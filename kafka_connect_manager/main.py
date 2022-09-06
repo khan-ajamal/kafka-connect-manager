@@ -1,8 +1,8 @@
 """main.py contain application logic"""
-
 import asyncio
 from timeit import default_timer as timer
 
+import typer
 import httpx
 from rich.table import Table
 from rich.console import Console
@@ -10,7 +10,11 @@ from rich import print as rprint
 from rich.progress import Progress, SpinnerColumn
 
 from kafka_connect_manager import constants
-from kafka_connect_manager.utils import get_formatted_state
+from kafka_connect_manager.utils import (
+    expand_environment_variables,
+    get_formatted_state,
+    slugify,
+)
 
 
 async def _get_active_connectors(host: str) -> list[str]:
@@ -31,6 +35,13 @@ async def _get_connector_status(host: str, connector: str) -> dict:
     """Get connector configuration and tasks details"""
     async with httpx.AsyncClient() as client:
         resp = await client.get(f"{host}/connectors/{connector}/status")
+        return resp.json()
+
+
+async def _register_connector(host: str, config: dict) -> dict:
+    """Get connector configuration and tasks details"""
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(f"{host}/connectors", json=config)
         return resp.json()
 
 
@@ -125,3 +136,43 @@ async def get_connector_status(host: str, connector_name: str):
 
     console = Console()
     console.print(connector_task_status_table)
+
+
+def validate_connector_configuration(config: dict):
+    """Validate configuration that all required fields are provided"""
+    required_fields = ["connector.class"]
+
+    missing_fields = []
+    for field in required_fields:
+        if field not in config.keys():
+            missing_fields.append(field)
+
+    if missing_fields:
+        raise typer.BadParameter(
+            f"Following fields are missing: {','.join(missing_fields)}"
+        )
+
+
+async def register_connector(host: str, connector_config: dict):
+    """Register connector"""
+    # expand environment variables
+    expand_environment_variables(connector_config)
+
+    if not connector_config.get("name") or not connector_config.get("config"):
+        raise typer.BadParameter(
+            "`name` and `config` are required field for configuration JSON"
+        )
+
+    connector_name = slugify(str(connector_config.get("name")))
+    if connector_config.get("config"):
+        connector_config = connector_config.get("config") or {}
+
+    # validate config to have basic information available
+    validate_connector_configuration(connector_config)
+
+    config = {"name": connector_name, "config": connector_config}
+    resp = await _register_connector(host, config)
+    if resp.get("error_code"):
+        raise typer.BadParameter(resp["message"])
+
+    rprint(f"\n[bold green]Connector Registered: [/bold green]{connector_name}")
