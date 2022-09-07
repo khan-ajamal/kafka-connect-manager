@@ -2,7 +2,11 @@
 import os
 import re
 
-STATE_COLOR_MAP = {"RUNNING": "[bold green]"}
+STATE_COLOR_MAP = {
+    "RUNNING": "[bold green]",
+    "FAILED": "[bold red]",
+    "RESTARTING": "[bold blue]",
+}
 
 # used to remove non url safe characters
 TRANSLATE_TABLE = {i: "" for i in range(128) if not re.match(r"[A-Za-z0-9\s]", chr(i))}
@@ -12,7 +16,7 @@ ENV_VARIABLE_PATTERN = r"(\$\{[A-Z0-9\_]+\})"
 
 def get_formatted_state(state: str) -> str:
     """Format state for rich console"""
-    return f"{STATE_COLOR_MAP[state]}{state}"
+    return f"{STATE_COLOR_MAP.get(state, '')}{state}"
 
 
 def slugify(text: str) -> str:
