@@ -1,6 +1,7 @@
 """cli.py contains cli commands"""
 import json
 import asyncio
+from typing import List
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -10,10 +11,13 @@ from kafka_connect_manager import constants
 from kafka_connect_manager.main import (
     get_connectors,
     get_connector_status,
+    monitor_connectors,
     register_connector,
 )
 
-app = typer.Typer(help="CLI to manage Kafka Connectors")
+app = typer.Typer(
+    pretty_exceptions_show_locals=False, help="CLI to manage Kafka Connectors"
+)
 
 
 @app.callback()
@@ -87,3 +91,13 @@ def add_connector(
     with open(configuration_file, "r", encoding="UTF-8") as file:
         config = json.load(file)
         asyncio.run(register_connector(ctx.obj.host, config))
+
+
+@app.command("watch")
+def watch_connectors(
+    ctx: typer.Context,
+    connectors: List[str] = typer.Argument(None, help="Connectors to monitor"),
+    refresh_interval: int = typer.Option(5, help="Refresh interval"),
+):
+    """Actively monitor your connectors health"""
+    asyncio.run(monitor_connectors(ctx.obj.host, connectors, refresh_interval))

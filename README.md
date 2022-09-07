@@ -19,6 +19,7 @@ $ kcm [OPTIONS] COMMAND [ARGS]...
 -   `add`: Register new connector
 -   `list`: List all connectors
 -   `status`: Get status connector
+-   `watch`: Actively monitor your connectors health
 
 ## `kcm add`
 
@@ -79,4 +80,25 @@ $ kcm status [OPTIONS]
 **Options**:
 
 -   `--connector TEXT`: Name of connector [required]
+-   `--help`: Show this message and exit.
+
+## `kcm watch`
+
+Actively monitor your connectors health
+
+![Dashboard Screenshot](https://res.cloudinary.com/ajamalkhan/image/upload/f_auto,q_auto/v1662560403/projects/kafka-connect-manager-watch-dashboard.png)
+
+**Usage**:
+
+```console
+$ kcm watch [OPTIONS] [CONNECTORS]...
+```
+
+**Arguments**:
+
+-   `[CONNECTORS]...`: Connectors to monitor
+
+**Options**:
+
+-   `--refresh-interval INTEGER`: Refresh interval [default: 5]
 -   `--help`: Show this message and exit.

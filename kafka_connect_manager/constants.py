@@ -8,3 +8,11 @@ class ConnectorType(str, Enum):
     ALL = "all"
     SINK = "sink"
     SOURCE = "source"
+
+
+class ConnectorState(str, Enum):
+    """Different connect states"""
+
+    RUNNING = "RUNNING"
+    FAILED = "FAILED"
+    RESTARTING = "RESTARTING"
