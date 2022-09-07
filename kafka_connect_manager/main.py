@@ -1,10 +1,17 @@
 """main.py contain application logic"""
 import asyncio
+from datetime import datetime
+from collections import defaultdict
 from timeit import default_timer as timer
 
 import typer
 import httpx
+
+from rich.text import Text
+from rich.live import Live
+from rich.panel import Panel
 from rich.table import Table
+from rich.columns import Columns
 from rich.console import Console
 from rich import print as rprint
 from rich.progress import Progress, SpinnerColumn
@@ -176,3 +183,120 @@ async def register_connector(host: str, connector_config: dict):
         raise typer.BadParameter(resp["message"])
 
     rprint(f"\n[bold green]Connector Registered: [/bold green]{connector_name}")
+
+
+async def _get_monitoring_dashboard(host: str, connectors: list[str]) -> Table:
+    """Monitoring dashboard"""
+    tasks = [_get_connector_status(host, connector) for connector in connectors]
+
+    invalid_connectors = []
+    connector_metrics: dict = defaultdict(int)
+    task_metrics: dict = defaultdict(int)
+    workers = set()
+    for detail_task in asyncio.as_completed(tasks):
+        connector_detail = await detail_task
+        if connector_detail.get("error_code"):
+            invalid_connectors.append(connector_detail["message"])
+            continue
+
+        connector_metrics["total"] += 1
+        workers.add(connector_detail["connector"]["worker_id"])
+
+        if connector_detail["connector"]["state"] == constants.ConnectorState.RUNNING:
+            connector_metrics["active"] += 1
+        else:
+            connector_metrics["failed"] += 1
+
+        task_metrics["total"] += len(connector_detail["tasks"])
+
+        for task in connector_detail["tasks"]:
+            if task["state"] == constants.ConnectorState.RUNNING:
+                task_metrics["active"] += 1
+            else:
+                task_metrics["failed"] += 1
+    total_connector_panel = Panel.fit(
+        Text(str(connector_metrics["total"]), justify="center", style="bold gray"),
+        title="Total Connectors",
+        padding=(2, 2),
+    )
+    active_connector_panel = Panel.fit(
+        Text(str(connector_metrics["active"]), justify="center", style="bold green"),
+        title="Active Connectors",
+        padding=(2, 2),
+    )
+    failed_connector_panel = Panel.fit(
+        Text(str(connector_metrics["failed"]), justify="center", style="bold red"),
+        title="Failed Connectors",
+        padding=(2, 2),
+    )
+
+    # Task panels
+    total_tasks_panel = Panel.fit(
+        Text(str(task_metrics["total"]), justify="center", style="bold gray"),
+        title="Total Tasks",
+        padding=(2, 2),
+    )
+    active_tasks_panel = Panel.fit(
+        Text(str(task_metrics["active"]), justify="center", style="bold green"),
+        title="Active Tasks",
+        padding=(2, 2),
+    )
+    failed_tasks_panel = Panel.fit(
+        Text(str(task_metrics["failed"]), justify="center", style="bold red"),
+        title="Failed Tasks",
+        padding=(2, 2),
+    )
+
+    # workers
+    workers_panel = Panel.fit(
+        Text(str(len(workers)), justify="center", style="bold blue"),
+        title="Workers Count",
+        padding=(2, 2),
+    )
+    grid = Table.grid(expand=True)
+    grid.add_column()
+
+    now = datetime.now().strftime("%H:%M:%S")
+    grid.add_row(
+        Text(
+            f"Last updated at: {now}",
+            justify="right",
+            end="",
+        )
+    )
+    grid.add_row(
+        Columns(
+            [
+                workers_panel,
+                total_connector_panel,
+                active_connector_panel,
+                failed_connector_panel,
+                total_tasks_panel,
+                active_tasks_panel,
+                failed_tasks_panel,
+            ]
+        )
+    )
+
+    return grid
+
+
+async def monitor_connectors(
+    host: str, connectors: list[str] | None = None, refresh_interval: int = 5
+):
+    """Monitor connectors state along with its tasks
+
+    Args:
+        host: endpoint of worker node
+        connectors: List of connectors to monitor
+        refresh_interval: Number of seconds data will be refreshed
+    """
+    if not connectors:
+        connectors = await _get_active_connectors(host)
+
+    dashboard = await _get_monitoring_dashboard(host, connectors)
+    with Live(dashboard, refresh_per_second=refresh_interval) as live:
+        while True:
+            await asyncio.sleep(refresh_interval)
+            dashboard = await _get_monitoring_dashboard(host, connectors)
+            live.update(dashboard)
