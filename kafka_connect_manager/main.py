@@ -1,7 +1,7 @@
 """main.py contain application logic"""
 import asyncio
 from datetime import datetime
-from typing import Callable, List
+from typing import Any, Callable, List
 from timeit import default_timer as timer
 from collections import defaultdict, namedtuple
 
@@ -134,12 +134,16 @@ async def get_connector_status(host: str, connector_name: str):
     connector_task_status_table.add_column("ID")
     connector_task_status_table.add_column("State", justify="left")
     connector_task_status_table.add_column("Worker ID")
+    connector_task_status_table.add_column("Trace")
 
     for task_detail in status["tasks"]:
         connector_task_status_table.add_row(
             str(task_detail["id"]),
             get_formatted_state(task_detail["state"]),
             task_detail["worker_id"],
+            task_detail["trace"].split("\n")[0]
+            if task_detail["state"] == constants.ConnectorState.FAILED
+            else "N/A",
         )
 
     console = Console()
@@ -199,7 +203,7 @@ def _get_info_table(fields: list[str], data: List[Callable]) -> Table:
 
 
 def _create_dashboard_panels(
-    panel_type: str, data: dict, failed_data: List[Callable] | None = None
+    panel_type: str, data: dict, failed_data: List[Any] | None = None
 ) -> List[Panel]:
     """Create panel for dashboard along with there data"""
     total_panel = Panel.fit(
