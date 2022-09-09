@@ -1,8 +1,9 @@
 """main.py contain application logic"""
 import asyncio
 from datetime import datetime
-from collections import defaultdict
+from typing import Callable, List
 from timeit import default_timer as timer
+from collections import defaultdict, namedtuple
 
 import typer
 import httpx
@@ -185,6 +186,55 @@ async def register_connector(host: str, connector_config: dict):
     rprint(f"\n[bold green]Connector Registered: [/bold green]{connector_name}")
 
 
+def _get_info_table(fields: list[str], data: List[Callable]) -> Table:
+    """Create list based on fields"""
+    table = Table(expand=True)
+    for field in fields:
+        table.add_column(f"[bold]{field.capitalize()}")
+
+    for d in data:
+        table.add_row(*[getattr(d, f) for f in fields])
+
+    return table
+
+
+def _create_dashboard_panels(
+    panel_type: str, data: dict, failed_data: List[Callable] | None = None
+) -> List[Panel]:
+    """Create panel for dashboard along with there data"""
+    total_panel = Panel.fit(
+        Text(str(data["total"]), justify="center", style="bold gray"),
+        title=f"Total {panel_type.capitalize()}",
+        padding=(2, 2),
+    )
+    active_panel = Panel.fit(
+        Text(str(data["active"]), justify="center", style="bold green"),
+        title=f"Active {panel_type.capitalize()}",
+        padding=(2, 2),
+    )
+
+    failed_grid: Text | Table = Text(
+        str(data["failed"]), justify="center", style="bold red"
+    )
+    if failed_data:
+        failed_grid = Table.grid(expand=True)
+        failed_grid.add_column()
+
+        failed_grid.add_row(
+            Text(str(data["failed"]), justify="center", style="bold red"),
+        )
+
+        failed_grid.add_row(_get_info_table(failed_data[0]._fields, failed_data))
+
+    failed_panel = Panel.fit(
+        failed_grid,
+        title=f"Failed {panel_type.capitalize()}",
+        padding=(2, 2),
+    )
+
+    return [total_panel, active_panel, failed_panel]
+
+
 async def _get_monitoring_dashboard(host: str, connectors: list[str]) -> Table:
     """Monitoring dashboard"""
     tasks = [_get_connector_status(host, connector) for connector in connectors]
@@ -193,6 +243,12 @@ async def _get_monitoring_dashboard(host: str, connectors: list[str]) -> Table:
     connector_metrics: dict = defaultdict(int)
     task_metrics: dict = defaultdict(int)
     workers = set()
+
+    Task = namedtuple("Task", ["id", "connector", "state", "worker"])
+    failed_tasks = []
+
+    Connector = namedtuple("Connector", ["name", "type", "state", "worker"])
+    failed_connectors = []
     for detail_task in asyncio.as_completed(tasks):
         connector_detail = await detail_task
         if connector_detail.get("error_code"):
@@ -205,6 +261,14 @@ async def _get_monitoring_dashboard(host: str, connectors: list[str]) -> Table:
         if connector_detail["connector"]["state"] == constants.ConnectorState.RUNNING:
             connector_metrics["active"] += 1
         else:
+            failed_connectors.append(
+                Connector(
+                    connector_detail["name"],
+                    connector_detail["type"],
+                    connector_detail["connector"]["state"],
+                    connector_detail["connector"]["worker_id"],
+                )
+            )
             connector_metrics["failed"] += 1
 
         task_metrics["total"] += len(connector_detail["tasks"])
@@ -213,39 +277,15 @@ async def _get_monitoring_dashboard(host: str, connectors: list[str]) -> Table:
             if task["state"] == constants.ConnectorState.RUNNING:
                 task_metrics["active"] += 1
             else:
+                failed_tasks.append(
+                    Task(
+                        str(task["id"]),
+                        connector_detail["name"],
+                        task["state"],
+                        task["worker_id"],
+                    )
+                )
                 task_metrics["failed"] += 1
-    total_connector_panel = Panel.fit(
-        Text(str(connector_metrics["total"]), justify="center", style="bold gray"),
-        title="Total Connectors",
-        padding=(2, 2),
-    )
-    active_connector_panel = Panel.fit(
-        Text(str(connector_metrics["active"]), justify="center", style="bold green"),
-        title="Active Connectors",
-        padding=(2, 2),
-    )
-    failed_connector_panel = Panel.fit(
-        Text(str(connector_metrics["failed"]), justify="center", style="bold red"),
-        title="Failed Connectors",
-        padding=(2, 2),
-    )
-
-    # Task panels
-    total_tasks_panel = Panel.fit(
-        Text(str(task_metrics["total"]), justify="center", style="bold gray"),
-        title="Total Tasks",
-        padding=(2, 2),
-    )
-    active_tasks_panel = Panel.fit(
-        Text(str(task_metrics["active"]), justify="center", style="bold green"),
-        title="Active Tasks",
-        padding=(2, 2),
-    )
-    failed_tasks_panel = Panel.fit(
-        Text(str(task_metrics["failed"]), justify="center", style="bold red"),
-        title="Failed Tasks",
-        padding=(2, 2),
-    )
 
     # workers
     workers_panel = Panel.fit(
@@ -253,6 +293,14 @@ async def _get_monitoring_dashboard(host: str, connectors: list[str]) -> Table:
         title="Workers Count",
         padding=(2, 2),
     )
+
+    panel_columns = []
+    panel_columns.append(workers_panel)
+    panel_columns.extend(
+        _create_dashboard_panels("connectors", connector_metrics, failed_connectors)
+    )
+    panel_columns.extend(_create_dashboard_panels("tasks", task_metrics, failed_tasks))
+
     grid = Table.grid(expand=True)
     grid.add_column()
 
@@ -264,19 +312,8 @@ async def _get_monitoring_dashboard(host: str, connectors: list[str]) -> Table:
             end="",
         )
     )
-    grid.add_row(
-        Columns(
-            [
-                workers_panel,
-                total_connector_panel,
-                active_connector_panel,
-                failed_connector_panel,
-                total_tasks_panel,
-                active_tasks_panel,
-                failed_tasks_panel,
-            ]
-        )
-    )
+
+    grid.add_row(Columns(panel_columns))
 
     return grid
 
