@@ -1,4 +1,5 @@
 """main.py contain application logic"""
+import json
 import asyncio
 from datetime import datetime
 from typing import Any, Callable, List
@@ -165,6 +166,16 @@ def validate_connector_configuration(config: dict):
         )
 
 
+def serialize_array(data: dict) -> dict:
+    """Serialize array fields using json.dump"""
+    for k, v in data.items():
+        if isinstance(v, list):
+            data[k] = json.dumps(v)
+        elif isinstance(v, dict):
+            serialize_array(v)
+    return data
+
+
 async def register_connector(host: str, connector_config: dict):
     """Register connector"""
     # expand environment variables
@@ -181,6 +192,8 @@ async def register_connector(host: str, connector_config: dict):
 
     # validate config to have basic information available
     validate_connector_configuration(connector_config)
+
+    connector_config = serialize_array(connector_config)
 
     config = {"name": connector_name, "config": connector_config}
     resp = await _register_connector(host, config)
