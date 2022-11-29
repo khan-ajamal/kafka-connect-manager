@@ -13,6 +13,7 @@ from kafka_connect_manager.main import (
     get_connector_status,
     monitor_connectors,
     register_connector,
+    update_connector
 )
 
 app = typer.Typer(
@@ -101,3 +102,25 @@ def watch_connectors(
 ):
     """Actively monitor your connectors health"""
     asyncio.run(monitor_connectors(ctx.obj.host, connectors, refresh_interval))
+
+@app.command("update")
+def update_connector_config(
+    ctx: typer.Context,
+    connector: str = typer.Argument(..., help="Connector name"),
+    configuration_file: Path = typer.Option(
+        ...,
+        "--file",
+        "-f",
+        help="Config JSON file path",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        writable=False,
+        readable=True,
+        resolve_path=True,
+    )
+):
+    """Update connector configuration"""
+    with open(configuration_file, "r", encoding="UTF-8") as file:
+        config = json.load(file)
+        asyncio.run(update_connector(ctx.obj.host, connector, config))
