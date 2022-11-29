@@ -53,6 +53,11 @@ async def _register_connector(host: str, config: dict) -> dict:
         resp = await client.post(f"{host}/connectors", json=config)
         return resp.json()
 
+async def _update_connector(host: str, connector: str, config: dict) -> dict:
+    """Get connector configuration and tasks details"""
+    async with httpx.AsyncClient() as client:
+        resp = await client.put(f"{host}/connectors/{connector}/config", json=config)
+        return resp.json()
 
 async def get_connectors(
     host: str,
@@ -354,3 +359,28 @@ async def monitor_connectors(
             await asyncio.sleep(refresh_interval)
             dashboard = await _get_monitoring_dashboard(host, connectors)
             live.update(dashboard)
+
+async def update_connector(host: str, connector: str, connector_config: dict):
+    """Register connector"""
+    # expand environment variables
+    expand_environment_variables(connector_config)
+
+    if not connector_config.get("config"):
+        raise typer.BadParameter(
+            "`config` are required field for configuration JSON"
+        )
+
+    connector_name = slugify(str(connector.get("name")))
+    if connector_config.get("config"):
+        connector_config = connector_config.get("config") or {}
+
+    # validate config to have basic information available
+    validate_connector_configuration(connector_config)
+
+    connector_config = serialize_array(connector_config)
+
+    resp = await _update_connector(host, connector_name, connector_config)
+    if resp.get("error_code"):
+        raise typer.BadParameter(resp["message"])
+
+    rprint(f"\n[bold green]Connector Updated: [/bold green]{connector_name}")

@@ -1,0 +1,47 @@
+name: Push to PyPi
+on:
+    release:
+        types: [published]
+        branches:
+            - main
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                python-version: ["3.10"]
+        steps:
+            - uses: actions/checkout@v3
+            - name: Set up Python ${{ matrix.python-version }}
+              uses: actions/setup-python@v3
+              with:
+                  python-version: ${{ matrix.python-version }}
+            - name: Cache poetry install
+              id: cache-poetry
+              uses: actions/cache@v3
+              with:
+                  path: ~/.local
+                  key: poetry-1.2.2-0
+            - name: Install and configure Poetry
+              uses: snok/install-poetry@v1
+              with:
+                  version: 1.2.2
+                  virtualenvs-create: true
+                  virtualenvs-in-project: true
+            - name: cache deps
+              id: cache-deps
+              uses: actions/cache@v3
+              with:
+                  path: .venv
+                  key: pydeps-${{ hashFiles('**/poetry.lock') }}-${{ matrix.python-version }}
+            - name: Install dependencies
+              run: poetry install --no-interaction --no-root
+              if: steps.cache-deps.outputs.cache-hit != 'true'
+            - run: poetry install --no-interaction
+            - name: Setting environment variables
+              env:
+                  POETRY_PYPI_TOKEN_PYPI: ${{ secrets.POETRY_PYPI_TOKEN_PYPI }}
+              run: |
+                  poetry config pypi-token.pypi "$POETRY_PYPI_TOKEN_PYPI"
+            - name: Publishing to PyPi
+              run: poetry publish --build
