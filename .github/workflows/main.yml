@@ -38,4 +38,7 @@ jobs:
               run: poetry install --no-interaction --no-root
             
             - name: Run Poetry Version
-              run: poetry version
+              run: |
+               poetry version
+               poetry build
+               poetry run python --version
