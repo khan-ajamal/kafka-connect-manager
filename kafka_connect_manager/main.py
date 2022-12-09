@@ -370,7 +370,10 @@ async def update_connector(host: str, connector: str, connector_config: dict):
             "`config` are required field for configuration JSON"
         )
 
-    connector_name = slugify(str(connector.get("name")))
+    connector_name = slugify(str(connector_config.get("name")))
+    if connector != connector_name:
+        raise ValueError(f"Connector name mismatch: {connector} != {connector_name}")
+
     if connector_config.get("config"):
         connector_config = connector_config.get("config") or {}
 
