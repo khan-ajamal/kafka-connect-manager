@@ -22,26 +22,28 @@ jobs:
               with:
                   path: ~/.local
                   key: poetry-1.2.2-0
+
             - name: Install and configure Poetry
-              uses: snok/install-poetry@v1
-              with:
-                  version: 1.2.2
-                  virtualenvs-create: true
-                  virtualenvs-in-project: true
-            - name: cache deps
+              if: steps.cache-poetry.outputs.cache-hit != 'true'
+              run: |
+                curl -sSL https://install.python-poetry.org | python - --version 1.2.2
+                poetry config virtualenvs.in-project true
+            - name: Cache Dependencies
               id: cache-deps
               uses: actions/cache@v3
               with:
                   path: .venv
                   key: pydeps-${{ hashFiles('**/poetry.lock') }}-${{ matrix.python-version }}
+
             - name: Install dependencies
-              run: poetry install --no-interaction --no-root
               if: steps.cache-deps.outputs.cache-hit != 'true'
-            - run: poetry install --no-interaction
+              run: poetry install --no-interaction --no-root
+
             - name: Setting environment variables
               env:
                   POETRY_PYPI_TOKEN_PYPI: ${{ secrets.POETRY_PYPI_TOKEN_PYPI }}
               run: |
-                  poetry config pypi-token.pypi "$POETRY_PYPI_TOKEN_PYPI"
+                  poetry config pypi-token.pypi "$POETRY_PYPI_TOKEN_PYPI" --local
+
             - name: Publishing to PyPi
               run: poetry publish --build
